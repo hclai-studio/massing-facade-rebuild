@@ -141,3 +141,7 @@ MIT，见 [LICENSE](LICENSE)。
 ## 作者
 
 H.C. Lai · [hclai.studio](https://hclai.studio)
+
+## 致谢
+
+这个 skill 的规则和文档，是作者和 Claude（Anthropic）在一轮轮对话里一起磨出来的；建模和脚本由 Codex（GPT-6 Astra）在测试中写成。

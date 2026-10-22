@@ -141,3 +141,7 @@ MIT, see [LICENSE](LICENSE).
 ## Author
 
 H.C. Lai · [hclai.studio](https://hclai.studio)
+
+## Acknowledgements
+
+The rules and documentation of this skill were worked out by the author and Claude (Anthropic) over many rounds of conversation. The models and scripts were written by Codex (GPT-6 Astra) during the test runs.
