@@ -1,0 +1,16 @@
+# 项目源文件与运行产物：不公开
+*.skp
+*.skb
+*.blend
+*.blend1
+*.fbx
+*.3dm
+runs/
+cost-reports/
+
+# 系统与缓存文件
+Thumbs.db
+desktop.ini
+.DS_Store
+__pycache__/
+*.pyc
