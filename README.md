@@ -1,147 +1,149 @@
-# massing-facade-rebuild · 基于体块的立面重建
+# massing-facade-rebuild
 
-> 体块定几何，效果图定语言。
+English · [中文](README.zh-CN.md)
 
-一个给 AI agent 用的 skill：在你已有的 SketchUp 体块上，把一张经你确认的效果图，转译成 Blender 里可编辑、可核验的立面模型。
+> The massing sets the geometry. The rendering sets the language.
 
-![体块 → 效果图 → Blender 模型](docs/images/apartment_pipeline.jpg)
+A skill for AI agents: take a rendering you have approved and translate it into an editable, verifiable facade model in Blender, built on your existing SketchUp massing.
 
-[English](README.en.md)
+![Massing → AI rendering → editable Blender model, ending on a before/after split](docs/images/apartment_demo.gif)
 
-## 为什么做这个
+## Why
 
-网上很多"AI 一句话建模"的演示，是对着一张照片凭空去建。真实项目不是这样：先有体块，再在体块上深化立面。层数、标高、尺寸由体块说了算，效果图只负责立面语言。
+Most "one-prompt AI modeling" demos build from a single photo, out of thin air. Real projects don't work that way. The massing comes first, and the facade is developed on top of it. Floor counts, levels and dimensions belong to the massing; the rendering only carries the facade language.
 
-这个 skill 把这条真实的设计流程交给 agent 来跑：体块不动，立面照着效果图长出来；看不清的地方如实标成推定，关键决定停下来问设计者。
+This skill hands that workflow to an agent. The massing stays untouched while the facade grows out of the rendering. Whatever can't be seen is recorded honestly as an inference, and key decisions go back to the designer.
 
-## 它怎么工作
+## How it works
 
-| 阶段 | 做什么 | 关卡 |
+![Massing → rendering → Blender model](docs/images/apartment_pipeline.jpg)
+
+| Stage | What happens | Gate |
 |---|---|---|
-| 0 检查输入 | 清点文件，开始运行记录 | 缺底模或效果图就停 |
-| 1 锁定底模 | 读出单位、层数、标高、立面朝向，生成几何事实卡 | 和 SU 截图对不上就问 |
-| 2 出图（可选） | 用内置提示词模板出效果图 | 设计者确认这就是方向 |
-| 3 比例关卡 | 判定立面类型（不规则 / 母题重复），核对比例 | 设计者确认类型和推定 |
-| 4 判读 | 逐单元或按母题记录，可见、推定、修正分开标注 | 每个单元都有据可查 |
-| 4.5 样件 | 先建一小片，和效果图并排对照 | 设计者逐项确认后才铺满 |
-| 5 建模 | 在体块副本上建立面，原始网格不动；铺满前先列出所有收头 | — |
-| 6 检查与核验 | 固定视角出检查图，另出一张和效果图同视角的对照渲染；核验体块没被改动 | 核验通过，设计者看过 |
-| 7 交付归档 | 交付模型、记录和核验报告，只复制归档 | — |
+| 0 Check inputs | Inventory the files, start the run record | Stop if the massing or the rendering is missing |
+| 1 Lock the massing | Read units, floors, levels and facade orientation; write a geometry fact sheet | Ask if anything disagrees with the SketchUp screenshot |
+| 2 Render (optional) | Generate the rendering with the built-in prompt template | Designer confirms this is the direction |
+| 3 Scale check | Classify the facade (irregular / repeating motif) and check proportions | Designer confirms the type and the inferences |
+| 4 Read | Record unit by unit, or by motif; tag what is visible, inferred or corrected | Every unit traceable to a record |
+| 4.5 Samples | Build a small piece first, side by side with the rendering | Designer confirms item by item before the full build |
+| 5 Build | Model the facade on a copy of the massing, original meshes untouched; list every edge condition before filling the facade | — |
+| 6 Check & verify | Fixed-angle check views, plus one render matched to the rendering's view; verify the massing is unchanged | Verification passes and the designer has reviewed |
+| 7 Deliver & archive | Hand over the model, records and verification report; archive by copying only | — |
 
-每个阶段都留下文件，换一个会话也能接着做。
+Every stage leaves files behind, so a new session can pick up where the last one stopped.
 
-## 两个案例
+## Two cases
 
-### 公寓：不规则洞口立面
+### Apartment: irregular openings
 
-![公寓：立面细部与效果图对照](docs/images/apartment_detail.png)
+![Apartment: facade detail next to the rendering](docs/images/apartment_detail.png)
 
-- 输入：SU 导出的 FBX、SU 截图、一张目标效果图、一张局部裁图
-- 成功的那一轮约 1 小时、约 315 万 token，基本用完一个 5 小时额度窗口（GPT-6 Astra，最高推理强度）
-- 逐洞口记录 45 条；核验确认原始体块网格未变，新增构件不越界，未使用阵列修改器
-- 被树挡住的两个洞口、图上看不出的进深，都标成了推定
+- Inputs: FBX exported from SketchUp, a SketchUp screenshot, one target rendering, one detail crop
+- The successful run took about 1 hour and about 3.15M tokens, using up roughly one 5-hour quota window (GPT-6 Astra, highest reasoning effort)
+- 45 opening records; verification confirmed the original massing meshes were unchanged, new elements stayed in bounds, and no Array modifier was used
+- Two openings hidden behind trees, and depths the image doesn't show, were marked as inferred
 
-### 办公塔楼：母题重复立面
+### Office tower: repeating motif
 
-![办公塔楼正式模型，黄昏](docs/images/tower_final.jpg)
+![Office tower, final model at dusk](docs/images/tower_final.jpg)
 
-- 30×30 米塔楼：8 米通高商业、20 层办公、4 米顶冠；只建效果图里看得到的两个面和它们的转角
-- 效果图里一个单元只有十几个像素。看不清的部分，设计者先后补了一个单元模型、一小片排布、整面排布和关键尺寸（节距、逐层错位），以及一条转角规则
-- 样件改了四轮，依次修正了形体、构造和构件关系；第一次铺满后，因为逐层错位没定，转角收头逐层不同，定了尺寸再重建
-- 全程 GPT-6 Astra、最高推理强度：从开考到交付约 8,300 万 token（已记录部分），主会话累计约 7 小时，前后近三周，中断续跑 20 次
+- A 30 × 30 m tower: 8 m double-height retail, 20 office floors, a 4 m crown. Only the two faces visible in the rendering and their shared corner were built
+- A single unit is only a dozen or so pixels in the rendering. To fill the gaps, the designer supplied a unit model, a small patch layout, a full-facade layout with key dimensions (pitch and per-floor offset), and a corner rule
+- The samples went through four rounds, fixing form, construction logic and how neighbouring units meet. After the first full build, the corners terminated differently on every floor because the per-floor offset hadn't been fixed; the dimensions were set and the facade rebuilt
+- GPT-6 Astra at the highest reasoning effort throughout: about 83M tokens from start to delivery (logged portion), about 7 hours of main-session run time, spread over nearly three weeks with 20 interrupted-and-resumed turns
 
-最后一轮，AI 已经能照效果图做到很像（中，白框约占立面的 72%）；设计者为办公采光，选了更细的框（右）。这个偏离记在 `adaptation.md` 里，是有意的取舍。
+In the last round the AI could already match the rendering closely (middle: white frames covering about 72% of the facade). For office daylight, the designer chose slimmer frames (right). That departure is recorded in `adaptation.md` as a deliberate trade-off.
 
-![效果图、照效果图做到的 B 档、设计者选定的正式模型](docs/images/tower_result.jpg)
+![Approved rendering, option B matched to it, and the designer's final model](docs/images/tower_result.jpg)
 
-*左：确认的效果图　中：照效果图做到的 B 档　右：设计者选定的正式模型*
+*Left: approved rendering · Middle: option B, matched to the rendering · Right: the designer's final model*
 
-## 两个案例说明了什么
+## What the two cases show
 
-- **效果图讲得清的，AI 一遍就能做对；讲不清的，要设计者来补规则。** 成本也跟着变：塔楼的 token 约是公寓成功那一轮的 26 倍。
-- **AI 能做到像，设计师决定要不要像。** 照图还原只是起点；采光、使用这些生图模型不管的事，由设计者拍板。
+- **When the rendering makes the design clear, the AI gets it right in one pass. When it doesn't, the designer has to supply the rules.** Cost follows: the tower used about 26 times the tokens of the apartment's successful run.
+- **The AI can make it look like the rendering. The designer decides whether it should.** Matching the image is only the starting point; daylight and use, which image generators ignore, are the designer's call.
 
-成本明细和统计口径见 [实验记录](references/benchmark-attempts.md#成本对比)。
+Cost details and how they were counted: [benchmark-attempts.md](references/benchmark-attempts.md#成本对比) (in Chinese).
 
-## 人和 AI 各管什么
+## Who decides what
 
-- **体块不可改。** 和效果图冲突时，以体块为准。
-- **效果图是设计意图，不是施工图。** 构造按常规理解：玻璃和窗是标准矩形，异形造型是外挂的"衣服"。照图还原会影响采光、通风时，AI 指出来，由你取舍。
-- **局部推定可以，整体发明不行。** 进深、被遮挡的部分可以推定；整面怎么构成、怎么变化，必须来自效果图或设计者。
-- **设计意图归你，实现细节归 AI。** 构造逻辑、整体读感、关键尺度由你定；孔洞位置、尺寸微调由 AI 定；你还没想好的地方，AI 出两种方案给你挑。
-- **看见的、推定的、修正的，分开写。** 每个判断都有出处；有意偏离效果图的地方，记为取舍。
+- **The massing is fixed.** When it conflicts with the rendering, the massing wins.
+- **A rendering is design intent, not a construction drawing.** Construction is read conventionally: glass and windows are standard rectangles, and shaped elements are cladding worn over them like clothing. When following the image would hurt daylight or ventilation, the AI flags it and you decide.
+- **Local inference is fine; inventing the whole facade is not.** Depths and hidden parts may be inferred. How the whole facade is composed and how it varies must come from the rendering or from the designer.
+- **Design intent is yours; implementation detail is the AI's.** You set construction logic, the overall reading and key dimensions. The AI sets hole positions and fine adjustments. Where you haven't decided yet, the AI offers two options for you to pick from.
+- **Visible, inferred and corrected are recorded separately.** Every judgment has a source, and deliberate departures from the rendering are recorded as trade-offs.
 
-完整规则见 [SKILL.md](SKILL.md)。
+The full rules are in [SKILL.md](SKILL.md). It is written in Chinese; agents read it without trouble.
 
-## 快速开始
+## Quick start
 
-**需要：**
+**You need:**
 
-- Blender，能在命令行运行（`blender --background --python 脚本.py`）
-- 一个能读写本地文件、运行命令的 agent。本 skill 在 Codex + GPT-6 Astra 上测试过，建议用最高推理强度
-- 输入：
-  - SU 导出的 FBX 体块，目标建筑单独成组，用英文命名
-  - 和效果图同视角的 SU 截图，只画楼层线、开间线这类控制线
-  - 一张你确认过的效果图，或 1–2 张风格参考图（交给阶段 2 出图）
-  - 最复杂部位的局部裁图
-  - 可选：一个母题单元模型，效果图里单元看不清时用
+- Blender, runnable from the command line (`blender --background --python script.py`)
+- An agent that can read and write local files and run commands. Tested with Codex + GPT-6 Astra; highest reasoning effort recommended
+- Inputs:
+  - The massing exported from SketchUp as FBX, with the target building in its own group under an English name
+  - A SketchUp screenshot from the same view as the rendering, showing only control lines such as floor and bay lines
+  - One rendering you have approved, or 1–2 style references (Stage 2 generates the rendering from them)
+  - A detail crop of the most complex area
+  - Optional: a motif unit model, for when units can't be read from the rendering
 
-**安装：** 把整个文件夹放进 agent 的 skills 目录（如 Codex 的 `.agents/skills/`、Claude Code 的 `.claude/skills/`，以各工具文档为准），或者直接在对话里让 agent 读 `SKILL.md` 的路径。
+**Install:** put the whole folder in your agent's skills directory (for example `.agents/skills/` for Codex or `.claude/skills/` for Claude Code; check each tool's docs), or simply point the agent to `SKILL.md` in the conversation.
 
-**开场白：**
+**Opening prompt:**
 
 ```
-请使用 massing-facade-rebuild skill：先完整阅读 SKILL.md 及其 references/，按其中的阶段和关卡执行。
+Use the massing-facade-rebuild skill: read SKILL.md and its references/ in full, then follow its stages and gates.
 
-任务：在体块上重建 ____ 的立面。
-- 输入：____（只读）
-- 目标建筑：____（SU 里的分组名）；其余为保护范围
-- 范围：____（例如只建效果图里看得到的面）
-- 项目信息：____（建筑类型、各层功能、层高）
-- 产出写在：____
+Task: rebuild the facade of ____ on the massing.
+- Inputs: ____ (read-only)
+- Target building: ____ (group name in SketchUp); everything else is protected
+- Scope: ____ (e.g. only the faces visible in the rendering)
+- Project info: ____ (building type, use of each floor, floor heights)
+- Write outputs to: ____
 
-做到阶段 4.5 样件出图后停下，等我确认。
+Stop after the Stage 4.5 samples are rendered and wait for my confirmation.
 ```
 
-## 已知限制
+## Known limitations
 
-- 细粒度的渐变肌理，生图模型画不清，目前不适合这个流程
-- 母题在效果图里看不清时，需要设计者补单元模型和关键尺寸，返修和成本都会明显上升
-- 核验只查构件的宽高边界，不查进深
-- SU 导出 FBX 有几个坑：分组名会被自动加编号，中文名会变成下划线，单位可能标错（阶段 1 会核对）
-- 只在 Codex + GPT-6 Astra 上完整测试过；四面全包、曲面体块还没测过
+- Fine gradient textures: image generators can't render them clearly, so they don't suit this workflow yet
+- When the motif can't be read from the rendering, the designer has to supply a unit model and key dimensions, and revisions and cost go up sharply
+- Verification checks the width and height bounds of new elements, not their depth
+- SketchUp's FBX export has a few traps: group names get numbered, non-English names turn into underscores, and units may be mislabeled (checked in Stage 1)
+- Fully tested only with Codex + GPT-6 Astra; four-sided wraps and curved massings are untested
 
-## 目录
+## Layout
 
 ```
 massing-facade-rebuild/
-├── SKILL.md                   # 流程、关卡和原则
-├── README.md                  # 中文说明
-├── README.en.md               # English
+├── SKILL.md                   # stages, gates and principles
+├── README.md                  # English
+├── README.zh-CN.md            # 中文
 ├── LICENSE
-├── scripts/                   # 导入、事实卡、检查图、核验
+├── scripts/                   # import, fact sheet, check views, verification
 ├── references/
-│   ├── render-prompt.md       # 出图提示词模板
-│   ├── opening-record.csv     # 逐单元记录模板
-│   ├── motif-record.md        # 母题记录模板
-│   ├── geometry-vocabulary.md # 几何术语表
-│   ├── run-record.md          # 运行记录字段
-│   └── benchmark-attempts.md  # 实验史与成本对比，包括失败的每一轮
-└── docs/images/               # README 配图
+│   ├── render-prompt.md       # rendering prompt template
+│   ├── opening-record.csv     # per-unit record template
+│   ├── motif-record.md        # motif record template
+│   ├── geometry-vocabulary.md # geometry vocabulary
+│   ├── run-record.md          # run record fields
+│   └── benchmark-attempts.md  # experiment log and cost comparison, failures included
+└── docs/images/               # README images
 ```
 
-## 实验记录
+## Experiment log
 
-[benchmark-attempts.md](references/benchmark-attempts.md) 记下了两个案例从失败到成功的每一轮，也写清了哪些结论有证据、哪些没有。比如"Ultra 是成功的唯一原因"，就属于证据不支持的那一类；"塔楼贵只是因为立面类型"也是。
+[benchmark-attempts.md](references/benchmark-attempts.md) (in Chinese) records every round of both cases, failures included, and separates the conclusions the evidence supports from the ones it doesn't. "Ultra was the sole reason for success" is one it doesn't support; so is "the tower cost more only because of its facade type".
 
-## 许可
+## License
 
-MIT，见 [LICENSE](LICENSE)。
+MIT, see [LICENSE](LICENSE).
 
-## 作者
+## Author
 
 H.C. Lai · [hclai.studio](https://hclai.studio)
 
-## 致谢
+## Acknowledgements
 
-这个 skill 的规则和文档，是作者和 Claude（Anthropic）在一轮轮对话里一起磨出来的；建模和脚本由 Codex（GPT-6 Astra）在测试中写成。
+The rules and documentation of this skill were worked out by the author and Claude (Anthropic) over many rounds of conversation. The models and scripts were written by Codex (GPT-6 Astra) during the test runs.
